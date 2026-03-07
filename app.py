@@ -40,8 +40,8 @@ DRIVE_PARENT_FOLDER_ID = os.getenv(
 )
 SHEET_NAME = os.getenv("SHEET_NAME", "Sheet1")
 
-# Optional — set ANTHROPIC_API_KEY to enable auto-extraction
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+# Optional — set OPENAI_API_KEY to enable auto-extraction
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 
 # ---------------------------------------------------------------------------
@@ -86,18 +86,18 @@ def extract_pdf_text(filepath: Path) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Claude-based field extraction (optional)
+# OpenAI-based field extraction (optional)
 # ---------------------------------------------------------------------------
-def extract_fields_with_claude(text: str, filename: str) -> dict | None:
-    """Use Claude to pull structured fields from receipt text. Returns None on failure."""
-    if not ANTHROPIC_API_KEY:
+def extract_fields_with_openai(text: str, filename: str) -> dict | None:
+    """Use OpenAI to pull structured fields from receipt text. Returns None on failure."""
+    if not OPENAI_API_KEY:
         return None
     try:
-        import anthropic
+        from openai import OpenAI
 
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        response = client.messages.create(
-            model="claude-sonnet-4-5-20250514",
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
             max_tokens=1024,
             messages=[
                 {
@@ -117,13 +117,13 @@ def extract_fields_with_claude(text: str, filename: str) -> dict | None:
                 }
             ],
         )
-        raw = response.content[0].text.strip()
+        raw = response.choices[0].message.content.strip()
         # Handle potential markdown fences
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
         return json.loads(raw)
     except Exception as e:
-        print(f"[Claude extraction] {e}")
+        print(f"[OpenAI extraction] {e}")
         return None
 
 
@@ -176,8 +176,8 @@ def get_or_create_month_folder(drive_service, date_str: str):
 # ---------------------------------------------------------------------------
 @app.route("/")
 def index():
-    has_claude = bool(ANTHROPIC_API_KEY)
-    return render_template("index.html", has_claude=has_claude)
+    has_ai = bool(OPENAI_API_KEY)
+    return render_template("index.html", has_ai=has_ai)
 
 
 @app.route("/upload", methods=["POST"])
@@ -201,7 +201,7 @@ def upload():
         filepath.unlink(missing_ok=True)
         return jsonify({"error": f"PDF extraction failed: {e}"}), 500
 
-    fields = extract_fields_with_claude(text, file.filename) or {
+    fields = extract_fields_with_openai(text, file.filename) or {
         "vendor": "",
         "service_date": "",
         "amount": "",
@@ -283,5 +283,6 @@ def submit():
 
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
     print("\n  HSA Receipt Tracker → http://localhost:5050\n")
-    app.run(debug=True, port=5050)
+    app.run(debug=debug, port=5050)
