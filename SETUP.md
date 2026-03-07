@@ -49,7 +49,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-The `.env` file is pre-filled with your Google Sheet and Drive folder IDs. If you want Claude-powered auto-extraction of receipt fields, add your Anthropic API key to the `ANTHROPIC_API_KEY` line.
+The `.env` file is pre-filled with your Google Sheet and Drive folder IDs. If you want AI-powered auto-extraction of receipt fields, add your OpenAI API key to the `OPENAI_API_KEY` line.
 
 ## 5. Run the App
 
@@ -80,6 +80,38 @@ Open http://localhost:5050 in your browser. Drop a PDF receipt:
 
 ---
 
+## 6a. Run as an Always-On Service (macOS)
+
+To keep the app running in the background and have it start automatically on login:
+
+```bash
+# Copy the launchd plist to the right location
+cp com.pjhoberman.hsa-tracker.plist ~/Library/LaunchAgents/
+
+# Load and start the service
+launchctl load ~/Library/LaunchAgents/com.pjhoberman.hsa-tracker.plist
+```
+
+The app will now:
+- Start automatically when you log in
+- Restart if it crashes
+- Log output to `~/Library/Logs/hsa-tracker.log`
+
+To manage the service:
+```bash
+# Stop it
+launchctl unload ~/Library/LaunchAgents/com.pjhoberman.hsa-tracker.plist
+
+# Restart it (unload + load)
+launchctl unload ~/Library/LaunchAgents/com.pjhoberman.hsa-tracker.plist
+launchctl load ~/Library/LaunchAgents/com.pjhoberman.hsa-tracker.plist
+
+# Check logs
+tail -f ~/Library/Logs/hsa-tracker.log
+```
+
+---
+
 ## Troubleshooting
 
 **"credentials.json not found"**
@@ -94,5 +126,5 @@ Open http://localhost:5050 in your browser. Drop a PDF receipt:
 **"HttpError 403: The caller does not have permission"**
 → Make sure you're signed in with the Google account that owns the HSA Drive folder and Sheet, and that you enabled both the Drive API and Sheets API.
 
-**Claude auto-extraction not working**
-→ Check that `ANTHROPIC_API_KEY` is set in your `.env` file. The app works fine without it — you'll just fill in the fields manually.
+**Auto-extraction not working**
+→ Check that `OPENAI_API_KEY` is set in your `.env` file. The app works fine without it — you'll just fill in the fields manually.
