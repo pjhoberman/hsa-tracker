@@ -9,9 +9,6 @@
     <array>
         <string>/opt/homebrew/bin/uv</string>
         <string>run</string>
-        <string>--with-requirements</string>
-        <string>requirements.txt</string>
-        <string>python</string>
         <string>app.py</string>
     </array>
 

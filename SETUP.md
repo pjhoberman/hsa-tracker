@@ -1,7 +1,7 @@
 # HSA Receipt Tracker — Setup Guide
 
 ## Prerequisites
-- Python 3.10+
+- [uv](https://docs.astral.sh/uv/) (`brew install uv`)
 - A Google account (the one that owns the HSA Drive folder)
 
 ---
@@ -34,16 +34,7 @@
 8. Click **Download JSON** on the confirmation dialog
 9. **Rename** the downloaded file to `credentials.json` and put it in the `hsa-tracker/` folder (next to `app.py`)
 
-## 3. Install Python Dependencies
-
-```bash
-cd hsa-tracker
-python -m venv venv
-source venv/bin/activate   # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-## 4. Configure Environment
+## 3. Configure Environment
 
 ```bash
 cp .env.example .env
@@ -51,10 +42,10 @@ cp .env.example .env
 
 The `.env` file is pre-filled with your Google Sheet and Drive folder IDs. If you want AI-powered auto-extraction of receipt fields, add your OpenAI API key to the `OPENAI_API_KEY` line.
 
-## 5. Run the App
+## 4. Run the App
 
 ```bash
-python app.py
+uv run app.py
 ```
 
 The first time you run it:
@@ -67,12 +58,12 @@ The first time you run it:
 
 After the first run, the app uses the saved token and won't ask again (until it expires, which is rare).
 
-## 6. Use It
+## 5. Use It
 
 Open http://localhost:5050 in your browser. Drop a PDF receipt:
 
 1. The app extracts text from the PDF
-2. If you set up the Anthropic API key, it auto-fills vendor, date, amount, etc.
+2. If you set up the OpenAI API key, it auto-fills vendor, date, amount, etc.
 3. Review the fields, adjust if needed
 4. Click **File Receipt**
 5. The PDF gets uploaded to the right `YYYY-MM` folder in your Drive
@@ -80,7 +71,7 @@ Open http://localhost:5050 in your browser. Drop a PDF receipt:
 
 ---
 
-## 6a. Run as an Always-On Service (macOS)
+## 5a. Run as an Always-On Service (macOS)
 
 To keep the app running in the background and have it start automatically on login:
 
