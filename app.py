@@ -254,7 +254,7 @@ def submit():
             data.get("date_paid", ""),
             data.get("paid_via", ""),
             "",  # Invoice — usually blank
-            filename,  # Receipt
+            f'=HYPERLINK("{uploaded.get("webViewLink", "")}", "{filename}")',  # Receipt
             data.get("notes", ""),
         ]
         sheets_svc.spreadsheets().values().append(
