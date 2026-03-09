@@ -3,6 +3,7 @@ HSA Receipt Tracker
 Drop a PDF receipt → extracts data → files it in Google Drive → logs it in your Sheet.
 """
 
+import hashlib
 import os
 import json
 from datetime import datetime
@@ -24,6 +25,7 @@ app = Flask(__name__)
 APP_DIR = Path(__file__).parent
 app.config["UPLOAD_FOLDER"] = APP_DIR / "uploads"
 app.config["UPLOAD_FOLDER"].mkdir(exist_ok=True)
+HASH_STORE_PATH = APP_DIR / "receipt_hashes.json"
 
 # ---------------------------------------------------------------------------
 # Configuration — override via .env or environment variables
@@ -69,6 +71,48 @@ def get_google_creds():
         token_path.write_text(creds.to_json())
 
     return creds
+
+
+# ---------------------------------------------------------------------------
+# Duplicate detection
+# ---------------------------------------------------------------------------
+def file_sha256(filepath: Path) -> str:
+    """Compute SHA-256 hash of a file."""
+    h = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def load_hash_store() -> dict:
+    """Load the hash→metadata store from disk."""
+    if HASH_STORE_PATH.exists():
+        return json.loads(HASH_STORE_PATH.read_text())
+    return {}
+
+
+def save_hash_store(store: dict):
+    """Persist the hash→metadata store to disk."""
+    HASH_STORE_PATH.write_text(json.dumps(store, indent=2))
+
+
+def check_duplicate(file_hash: str) -> dict | None:
+    """Return previous receipt metadata if this hash was already filed, else None."""
+    store = load_hash_store()
+    return store.get(file_hash)
+
+
+def record_hash(file_hash: str, filename: str, vendor: str, service_date: str):
+    """Record a filed receipt's hash."""
+    store = load_hash_store()
+    store[file_hash] = {
+        "filename": filename,
+        "vendor": vendor,
+        "service_date": service_date,
+        "filed_at": datetime.now().isoformat(),
+    }
+    save_hash_store(store)
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +239,10 @@ def upload():
     filepath = app.config["UPLOAD_FOLDER"] / file.filename
     file.save(filepath)
 
+    # Check for duplicate PDF
+    file_hash = file_sha256(filepath)
+    duplicate = check_duplicate(file_hash)
+
     try:
         text = extract_pdf_text(filepath)
     except Exception as e:
@@ -210,13 +258,16 @@ def upload():
         "notes": "",
     }
 
-    return jsonify(
-        {
-            "filename": file.filename,
-            "text": text[:6000],
-            "fields": fields,
-        }
-    )
+    result = {
+        "filename": file.filename,
+        "text": text[:6000],
+        "fields": fields,
+        "file_hash": file_hash,
+    }
+    if duplicate:
+        result["duplicate"] = duplicate
+
+    return jsonify(result)
 
 
 @app.route("/submit", methods=["POST"])
@@ -224,6 +275,7 @@ def submit():
     """Upload PDF to Drive and append a row to the Sheet."""
     data = request.json
     filename = data.get("filename", "")
+    file_hash = data.get("file_hash", "")
     filepath = app.config["UPLOAD_FOLDER"] / filename
 
     if not filepath.exists():
@@ -265,7 +317,11 @@ def submit():
             body={"values": [row]},
         ).execute()
 
-        # 3. Clean up local temp file
+        # 3. Record hash to prevent future duplicates
+        if file_hash:
+            record_hash(file_hash, filename, data.get("vendor", ""), data.get("service_date", ""))
+
+        # 4. Clean up local temp file
         filepath.unlink(missing_ok=True)
 
         return jsonify(

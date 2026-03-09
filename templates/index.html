@@ -47,6 +47,20 @@
     <!-- Error -->
     <div id="errorBox" class="hidden mt-4 bg-red-50 border border-red-200 text-red-700 rounded-lg p-4"></div>
 
+    <!-- Duplicate Warning -->
+    <div id="duplicateBox" class="hidden mt-4 bg-amber-50 border border-amber-300 text-amber-800 rounded-lg p-4">
+      <div class="flex items-start gap-3">
+        <svg class="flex-shrink-0 mt-0.5 text-amber-500" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
+        </svg>
+        <div>
+          <p class="font-medium">Possible duplicate receipt</p>
+          <p id="duplicateMsg" class="text-sm mt-1"></p>
+          <p class="text-sm mt-1 text-amber-600">You can still file it if this is intentional.</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Review Form (hidden until upload) -->
     <div id="reviewSection" class="hidden fade-in mt-6">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -135,8 +149,10 @@
     const dropContent = document.getElementById('dropContent');
     const uploadingMsg = document.getElementById('uploadingMsg');
     const errorBox = document.getElementById('errorBox');
+    const duplicateBox = document.getElementById('duplicateBox');
     const reviewSection = document.getElementById('reviewSection');
     const successBox = document.getElementById('successBox');
+    let currentFileHash = '';
 
     // --- Drag & Drop ---
     dropZone.addEventListener('click', () => fileInput.click());
@@ -161,6 +177,7 @@
     // --- Upload & Extract ---
     async function handleFile(file) {
       hideError();
+      duplicateBox.classList.add('hidden');
       reviewSection.classList.add('hidden');
       successBox.classList.add('hidden');
 
@@ -185,6 +202,19 @@
           showError(data.error || 'Upload failed');
           resetDrop();
           return;
+        }
+
+        // Track file hash for submit
+        currentFileHash = data.file_hash || '';
+
+        // Show duplicate warning if applicable
+        if (data.duplicate) {
+          const d = data.duplicate;
+          const msg = `This PDF was previously filed as "${d.filename}" (${d.vendor || 'unknown vendor'}, ${d.service_date || 'unknown date'}) on ${new Date(d.filed_at).toLocaleDateString()}.`;
+          document.getElementById('duplicateMsg').textContent = msg;
+          duplicateBox.classList.remove('hidden');
+        } else {
+          duplicateBox.classList.add('hidden');
         }
 
         // Populate form
@@ -245,6 +275,7 @@
         date_paid: document.getElementById('date_paid').value,
         paid_via: document.getElementById('paid_via').value,
         notes: document.getElementById('notes').value,
+        file_hash: currentFileHash,
       };
 
       try {

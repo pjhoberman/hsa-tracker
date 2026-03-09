@@ -11,4 +11,5 @@ wheels/
 .env
 token.json
 credentials.json
+receipt_hashes.json
 
